@@ -1,19 +1,23 @@
+// app/api/test-db/route.ts
 import { NextResponse } from 'next/server';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import pkg from 'pg';
+const { Pool } = pkg;
 
+// Detecta si estás en producción (Vercel/Neon)
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Pool de conexiones
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: isProduction ? { rejectUnauthorized: false } : false,
 });
-
-const db = drizzle(pool);
 
 export async function GET() {
   try {
-    const result = await db.execute(`SELECT NOW()`);
-    return NextResponse.json({ success: true, result });
-  } catch (err) {
-    console.error('❌ Error al conectar a la base de datos:', err);
-    return NextResponse.json({ success: false, error: String(err) }, { status: 500 });
+    const result = await pool.query('SELECT * FROM public.coaches LIMIT 5;');
+    return NextResponse.json({ success: true, rows: result.rows });
+  } catch (err: any) {
+    console.error('DB ERROR:', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
