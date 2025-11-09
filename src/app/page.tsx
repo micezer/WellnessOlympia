@@ -60,6 +60,15 @@ export default function LoginPage() {
           required
         />
 
+        {/* Patrón de ejemplo */}
+        <p className="text-gray-300 text-sm mb-4">
+          🔹 Formato: <span className="text-green-400">nombreapellidosa</span>
+          <br />
+          (usa <span className="text-green-400">sa</span> para Senior A,{' '}
+          <span className="text-green-400">sb</span> para Senior B,{' '}
+          <span className="text-green-400">sc</span> para Senior C)
+        </p>
+
         <button
           type="submit"
           disabled={loading}
