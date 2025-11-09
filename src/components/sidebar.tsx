@@ -9,9 +9,16 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { Home, Users, RefreshCcw, LogOut } from 'lucide-react';
+import { Home, RefreshCcw, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+
+// ✅ Define el tipo para el coach
+interface Coach {
+  firstname: string;
+  secondname: string;
+  chosen_team?: string;
+}
 
 type SidebarItem = {
   name: string;
@@ -24,7 +31,8 @@ type SidebarItem = {
 export function AppSideBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [coach, setCoach] = useState<any>(null);
+  // ✅ Cambia any por Coach | null
+  const [coach, setCoach] = useState<Coach | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

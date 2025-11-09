@@ -14,6 +14,7 @@ import {
   Bar,
 } from 'recharts';
 import { Dialog } from '@headlessui/react';
+import Image from 'next/image';
 
 interface WellnessForm {
   id: number;
@@ -113,12 +114,12 @@ export default function DashboardPage() {
     setModalContent(null);
   };
 
-  const formatMusclePain = (musclePain: Record<string, number>) => {
-    return Object.entries(musclePain)
-      .filter(([_, value]) => value > 0)
-      .map(([muscle, value]) => `${muscle}: ${value}`)
-      .join(', ');
-  };
+  //const formatMusclePain = (musclePain: Record<string, number>) => {
+  // return Object.entries(musclePain)
+  //  .filter(([_, value]) => value > 0)
+  //    .map(([muscle, value]) => `${muscle}: ${value}`)
+  //    .join(', ');
+  //};
 
   if (!dashboardData) return <p>Cargando dashboard...</p>;
 
@@ -351,7 +352,7 @@ export default function DashboardPage() {
                     {player.formsToday === 2 ? (
                       <span className="text-green-600 font-bold">✅</span>
                     ) : (
-                      <img
+                      <Image
                         src="/logos/cross.png" // ❌ imagen de cruz
                         alt="No completado"
                         className="w-5 h-5 inline-block"

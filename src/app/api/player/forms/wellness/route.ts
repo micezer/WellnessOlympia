@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db/db';
 import { player_wellness, players } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 
@@ -71,8 +71,12 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error('❌ Error en POST /api/player/forms/wellness:', err.message, err.stack);
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      console.error('❌ Error en POST /api/player/forms/wellness:', err.message, err.stack);
+    } else {
+      console.error('❌ Error desconocido en POST /api/player/forms/wellness:', err);
+    }
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }

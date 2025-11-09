@@ -1,16 +1,9 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export type Metric = {
   title: string;
   value: string | number;
-  change?: String;
+  change?: string;
   icon?: React.ReactNode;
 };
 

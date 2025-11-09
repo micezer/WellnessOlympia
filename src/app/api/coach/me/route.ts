@@ -13,15 +13,22 @@ export async function GET() {
   if (!token) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   try {
-    const decoded: any = jwt.verify(token, SECRET_KEY);
+    const decoded: unknown = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || typeof decoded !== 'object' || !('identifier' in decoded)) {
+      return NextResponse.json({ message: 'Token inválido' }, { status: 401 });
+    }
+
+    const decodedPayload = decoded as { identifier: string };
+
     const coachData = await db
       .select({
         firstname: coaches.firstname,
         secondname: coaches.secondname,
-        chosen_team: coaches.chosen_team, // 🔹 añadir aquí
+        chosen_team: coaches.chosen_team,
       })
       .from(coaches)
-      .where(eq(coaches.identifier, decoded.identifier));
+      .where(eq(coaches.identifier, decodedPayload.identifier));
 
     if (!coachData.length) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
 
@@ -31,6 +38,7 @@ export async function GET() {
       chosen_team: coachData[0].chosen_team, // 🔹 devolver también
     });
   } catch (err) {
-    return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    console.error('❌ Error verificando token o fetch coach:', err);
+    return NextResponse.json({ error: 'Token inválido o expirado' }, { status: 401 });
   }
 }

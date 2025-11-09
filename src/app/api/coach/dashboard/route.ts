@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     const token = userTokenCookie?.value;
     if (!token) return NextResponse.json({ message: 'Token no encontrado' }, { status: 401 });
 
-    let payload: any;
+    let payload: unknown;
     try {
       payload = jwt.verify(token, SECRET_KEY!);
     } catch {
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
     const coachData = await db
       .select()
       .from(coaches)
-      .where(eq(coaches.identifier, payload.identifier));
+      .where(eq(coaches.identifier, (payload as { identifier: string }).identifier));
 
     if (!coachData.length)
       return NextResponse.json({ message: 'Coach no encontrado' }, { status: 404 });

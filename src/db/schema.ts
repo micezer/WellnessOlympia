@@ -9,7 +9,6 @@ import {
   date,
   timestamp,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
 
 export const teams = pgTable('teams', {
   id: serial('id').primaryKey(),

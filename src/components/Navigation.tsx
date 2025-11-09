@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Home, User, MessageSquare, Image, Settings } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Home, User, Settings } from 'lucide-react';
 
 const tabs = [
   { name: 'Home', icon: <Home size={20} /> },

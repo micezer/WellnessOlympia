@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 const teams = ['Senior A', 'Senior B', 'Senior C'];
 
 export default function ChooseTeamPage() {
-  const [team, setTeam] = useState('');
+  const [team] = useState('');
   const [currentTeam, setCurrentTeam] = useState<string | null>(null);
   const [error, setError] = useState('');
   const router = useRouter();
