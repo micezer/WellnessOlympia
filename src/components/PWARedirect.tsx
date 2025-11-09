@@ -2,6 +2,11 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
+// Interface para navigator con standalone
+interface NavigatorWithStandalone extends Navigator {
+  standalone?: boolean;
+}
+
 export default function PWARedirect() {
   const router = useRouter();
   const pathname = usePathname();
@@ -13,7 +18,7 @@ export default function PWARedirect() {
 
       return (
         window.matchMedia('(display-mode: standalone)').matches ||
-        (window.navigator as any).standalone === true ||
+        (window.navigator as NavigatorWithStandalone).standalone === true ||
         document.referrer.includes('android-app://')
       );
     };

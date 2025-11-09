@@ -1,15 +1,18 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
+// Define el tipo para el evento de instalación
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 export default function InstallPage() {
-  const router = useRouter();
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
   const [isChrome, setIsChrome] = useState(false);
-  const [isSafari, setIsSafari] = useState(false);
 
   useEffect(() => {
     // Detectar dispositivo y navegador
@@ -17,12 +20,11 @@ export default function InstallPage() {
     setIsIOS(/iphone|ipad|ipod/.test(userAgent));
     setIsAndroid(/android/.test(userAgent));
     setIsChrome(/chrome/.test(userAgent));
-    setIsSafari(/safari/.test(userAgent) && !/chrome/.test(userAgent));
 
     // Manejar evento de instalación
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -34,7 +36,7 @@ export default function InstallPage() {
 
   const handleInstall = async () => {
     if (deferredPrompt) {
-      deferredPrompt.prompt();
+      await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         setDeferredPrompt(null);
@@ -43,11 +45,6 @@ export default function InstallPage() {
       }
     }
   };
-
-  // 🔥 ELIMINAMOS la opción de continuar en navegador
-  // const handleContinueInBrowser = () => {
-  //   router.push('/');
-  // };
 
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-[rgb(33,37,41)] text-white p-6 overflow-y-auto">
@@ -107,10 +104,10 @@ export default function InstallPage() {
                 <div className="flex items-start gap-3 p-3 bg-[rgb(55,60,65)] rounded-lg">
                   <span className="text-xl">2️⃣</span>
                   <div className="text-left">
-                    <p className="font-semibold">Selecciona "Instalar app"</p>
+                    <p className="font-semibold">Selecciona &quot;Instalar app&quot;</p>
                     <p className="text-sm text-gray-300">
-                      Busca la opción <strong>"Instalar app"</strong> o{' '}
-                      <strong>"Add to Home Screen"</strong>
+                      Busca la opción <strong>&quot;Instalar app&quot;</strong> o{' '}
+                      <strong>&quot;Add to Home Screen&quot;</strong>
                     </p>
                   </div>
                 </div>
@@ -120,8 +117,8 @@ export default function InstallPage() {
                   <div className="text-left">
                     <p className="font-semibold">Confirma la instalación</p>
                     <p className="text-sm text-gray-300">
-                      Toca <strong>"Instalar"</strong> o <strong>"Add"</strong> en el diálogo de
-                      confirmación
+                      Toca <strong>&quot;Instalar&quot;</strong> o <strong>&quot;Add&quot;</strong>{' '}
+                      en el diálogo de confirmación
                     </p>
                   </div>
                 </div>
@@ -142,7 +139,7 @@ export default function InstallPage() {
                 <div className="flex items-start gap-3 p-3 bg-[rgb(55,60,65)] rounded-lg">
                   <span className="text-xl">2️⃣</span>
                   <div className="text-left">
-                    <p className="font-semibold">Busca "Añadir a pantalla principal"</p>
+                    <p className="font-semibold">Busca &quot;Añadir a pantalla principal&quot;</p>
                     <p className="text-sm text-gray-300">
                       Selecciona la opción para instalar o añadir a inicio
                     </p>
@@ -186,8 +183,8 @@ export default function InstallPage() {
                 <div className="text-left">
                   <p className="font-semibold">Desplaza y selecciona</p>
                   <p className="text-sm text-gray-300">
-                    Desliza hacia arriba y busca <strong>"Add to Home Screen"</strong> o{' '}
-                    <strong>"Añadir a pantalla de inicio"</strong>
+                    Desliza hacia arriba y busca <strong>&quot;Add to Home Screen&quot;</strong> o{' '}
+                    <strong>&quot;Añadir a pantalla de inicio&quot;</strong>
                   </p>
                 </div>
               </div>
@@ -197,7 +194,7 @@ export default function InstallPage() {
                 <div className="text-left">
                   <p className="font-semibold">Confirma la instalación</p>
                   <p className="text-sm text-gray-300">
-                    Toca <strong>"Add"</strong> en la esquina superior derecha
+                    Toca <strong>&quot;Add&quot;</strong> en la esquina superior derecha
                   </p>
                 </div>
               </div>

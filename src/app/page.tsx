@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react'; // ❌ Quita useEffect
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
@@ -9,8 +9,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // ❌ QUITA la verificación automática de auth aquí
-  // Deja que SessionChecker maneje las redirecciones
+  // ✅ Ya no hay useEffect para verificación automática
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

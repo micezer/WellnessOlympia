@@ -1,6 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 
+// Interface para navigator con standalone
+interface NavigatorWithStandalone extends Navigator {
+  standalone?: boolean;
+}
+
 export function usePWAStatus() {
   const [isPWA, setIsPWA] = useState<boolean | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -11,7 +16,7 @@ export function usePWAStatus() {
       if (typeof window !== 'undefined') {
         return (
           window.matchMedia('(display-mode: standalone)').matches ||
-          (window.navigator as any).standalone === true ||
+          (window.navigator as NavigatorWithStandalone).standalone === true ||
           document.referrer.includes('android-app://')
         );
       }
