@@ -43,12 +43,10 @@ export async function POST(req: Request) {
     // Crear JWT con identifier y role
     const token = jwt.sign({ identifier, role }, SECRET_KEY, { expiresIn: '7d' });
 
-    // Cookie que persiste en PWA y navegador
     const cookie = serialize('user_token', token, {
       path: '/',
       httpOnly: true,
-      secure: true, // ✅ obligatorio para PWAs HTTPS
-      sameSite: 'none', // ✅ permite cross-site y modo standalone
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60, // 7 días
     });
 

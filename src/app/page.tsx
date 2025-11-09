@@ -7,31 +7,10 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const router = useRouter();
 
-  // Verificar si ya está autenticado al cargar
-  useEffect(() => {
-    const checkExistingAuth = async () => {
-      try {
-        const res = await fetch('/api/verify-auth', {
-          credentials: 'include',
-        });
-
-        const data = await res.json();
-
-        if (res.ok && data.isAuthenticated) {
-          router.push(data.redirectUrl);
-        }
-      } catch (error) {
-        console.error('Error checking auth:', error);
-      } finally {
-        setCheckingAuth(false);
-      }
-    };
-
-    checkExistingAuth();
-  }, [router]);
+  // ❌ QUITA la verificación automática de auth aquí
+  // Deja que SessionChecker maneje las redirecciones
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +28,6 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok && data.redirectUrl) {
-        await new Promise((r) => setTimeout(r, 200));
         router.push(data.redirectUrl);
       } else {
         setError(data.error || 'Error desconocido');
@@ -62,29 +40,15 @@ export default function LoginPage() {
     }
   };
 
-  if (checkingAuth) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[rgb(33,37,41)]">
-        <div className="text-white">Verificando sesión...</div>
-      </div>
-    );
-  }
-
   return (
-    <div
-      className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden"
-      style={{ backgroundColor: 'rgb(33,37,41)' }}
-    >
-      {/* Logo más arriba */}
+    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden bg-[rgb(33,37,41)]">
       <div className="flex justify-center items-center gap-6 mb-2 mt-[-100px]">
         <Image src="/logos/app_logo.png" alt="Wellness" width={220} height={220} />
       </div>
 
-      {/* Formulario centrado */}
       <form
         onSubmit={handleLogin}
-        className="p-8 rounded-2xl shadow-lg w-80 text-center"
-        style={{ backgroundColor: 'rgb(45,50,55)' }}
+        className="p-8 rounded-2xl shadow-lg w-80 text-center bg-[rgb(45,50,55)]"
       >
         <h1 className="text-2xl font-bold mb-6 text-white">Iniciar sesión</h1>
 

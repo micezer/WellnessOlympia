@@ -1,0 +1,43 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+
+export default function PWARedirect() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isPWA, setIsPWA] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkPWA = () => {
+      if (typeof window === 'undefined') return false;
+
+      return (
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes('android-app://')
+      );
+    };
+
+    setIsPWA(checkPWA());
+  }, []);
+
+  useEffect(() => {
+    if (isPWA === null) return;
+
+    const allowedPaths = ['/install', '/api', '/_next', '/manifest.json', '/sw.js'];
+    const isAllowedPath = allowedPaths.some((path) => pathname?.startsWith(path));
+
+    // 🔥 OBLIGATORIO: Si NO es PWA y NO está en página de instalación -> REDIRIGIR
+    if (!isPWA && !isAllowedPath) {
+      console.log('🔁 Redirigiendo obligatoriamente a /install');
+      router.push('/install');
+    }
+
+    // Si ES PWA y está en página de instalación -> redirigir a home
+    else if (isPWA && pathname === '/install') {
+      router.push('/');
+    }
+  }, [isPWA, pathname, router]);
+
+  return null;
+}
