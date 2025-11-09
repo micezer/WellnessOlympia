@@ -173,7 +173,7 @@ export default function InstallPage() {
                 <div className="text-left">
                   <p className="font-semibold">Abre el menú compartir</p>
                   <p className="text-sm text-gray-300">
-                    Toca el ícono de <strong>compartir</strong> 📤 en la barra inferior
+                    Toca el ícono de <strong>compartir</strong> 📤 en la barra.
                   </p>
                 </div>
               </div>
