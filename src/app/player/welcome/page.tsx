@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 interface Player {
   firstname: string;
@@ -23,6 +24,9 @@ export default function PlayerWelcomePage() {
   const [showBirthModal, setShowBirthModal] = useState(false);
   const [birthDate, setBirthDate] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const router = useRouter();
 
   // Mover la función dentro del componente para evitar dependencias
   const getToday = () => {
@@ -50,6 +54,27 @@ export default function PlayerWelcomePage() {
       document.documentElement.style.overflow = 'unset';
     };
   }, []); // Eliminar dependencias problemáticas
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      const res = await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        // Redirigir al login después de cerrar sesión
+        router.push('/');
+      } else {
+        console.error('Error al cerrar sesión');
+        setLoggingOut(false);
+      }
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      setLoggingOut(false);
+    }
+  };
 
   if (!status) return <p className="text-white text-center mt-10">Cargando...</p>;
 
@@ -89,8 +114,8 @@ export default function PlayerWelcomePage() {
       className="flex flex-col items-center min-h-screen w-full fixed top-0 left-0 overflow-hidden"
       style={{ backgroundColor: 'rgb(33, 37, 41)' }}
     >
-      {/* Header */}
-      <header className="w-full text-white shadow-md text-center flex flex-col items-center gap-4 py-4">
+      {/* Header con botón de logout */}
+      <header className="w-full text-white shadow-md text-center flex flex-col items-center gap-4 py-4 relative">
         <div className="flex justify-center items-center gap-8">
           <Image src="/logos/app_logo.png" alt="Wellness" width={130} height={130} />
         </div>
@@ -98,6 +123,14 @@ export default function PlayerWelcomePage() {
           Bienvenida, {status.player.firstname} {status.player.lastname}
         </h1>
         <p className="text-sm opacity-90">Equipo: {status.player.team}</p>
+
+        {/* Botón de logout */}
+        <button
+          onClick={() => setShowLogoutModal(true)}
+          className="absolute top-4 right-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+        >
+          Cerrar Sesión
+        </button>
       </header>
 
       {/* Formularios */}
@@ -180,6 +213,39 @@ export default function PlayerWelcomePage() {
             >
               {saving ? 'Guardando...' : 'Guardar'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de logout */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+          <div className="bg-[rgb(33,37,41)] p-6 rounded-2xl shadow-lg w-80 text-center">
+            <h2 className="text-xl font-bold text-white mb-4">Cerrar Sesión</h2>
+            <p className="text-gray-300 mb-6">¿Estás segura de que quieres cerrar sesión?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-semibold transition-colors"
+                disabled={loggingOut}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                {loggingOut ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Saliendo...
+                  </>
+                ) : (
+                  'Sí, Cerrar Sesión'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
