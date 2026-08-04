@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { isWellnessAvailable, isLoadAvailable, getCurrentHourInSpain } from '@/lib/time-utils';
+
 
 interface Player {
   firstname: string;
@@ -84,6 +86,12 @@ export default function PlayerWelcomePage() {
     load: status.load === today,
   };
 
+  const wellnessAvailable = isWellnessAvailable();
+  const loadAvailable = isLoadAvailable();
+  const currentHour = getCurrentHourInSpain();
+
+
+
   const handleSaveBirthDate = async () => {
     if (!birthDate) return;
     setSaving(true);
@@ -151,7 +159,7 @@ export default function PlayerWelcomePage() {
             </p>
             {alreadyDone.wellness ? (
               <p className="text-green-400 font-medium">✅ Formulario completado hoy</p>
-            ) : (
+            ) : wellnessAvailable ? (
               <Link href="/player/forms/wellness">
                 <button
                   className="w-full py-2 rounded-md font-semibold text-black"
@@ -160,6 +168,8 @@ export default function PlayerWelcomePage() {
                   Rellenar Wellness
                 </button>
               </Link>
+            ) : (
+              <p className="text-yellow-400 font-medium">⏳ Disponible de 9:00 a 12:00</p>
             )}
           </div>
 
@@ -168,21 +178,23 @@ export default function PlayerWelcomePage() {
             className="p-4 rounded-lg shadow"
             style={{ backgroundColor: 'rgb(55, 60, 65)', color: 'white' }}
           >
-            <h2 className="font-semibold mb-2">Carga de entrenamiento</h2>
+            <h2 className="font-semibold mb-2">Carga de entrenamiento (RPE)</h2>
             <p className="text-sm text-gray-300 mb-3">
               Último formulario: {status.load || 'No completado'}
             </p>
             {alreadyDone.load ? (
               <p className="text-green-400 font-medium">✅ Formulario completado hoy</p>
-            ) : (
+            ) : loadAvailable ? (
               <Link href="/player/forms/load">
                 <button
                   className="w-full py-2 rounded-md font-semibold text-black"
                   style={{ backgroundColor: 'rgb(0, 255, 127)' }}
                 >
-                  Rellenar Carga
+                  Rellenar RPE
                 </button>
               </Link>
+            ) : (
+              <p className="text-yellow-400 font-medium">⏳ Disponible de 19:00 a 23:59</p>
             )}
           </div>
         </div>

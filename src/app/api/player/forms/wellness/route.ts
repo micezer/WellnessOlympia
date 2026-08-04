@@ -4,11 +4,21 @@ import { player_wellness, players } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
+import { isWellnessAvailable } from '@/lib/time-utils';
+
 
 const SECRET_KEY = process.env.JWT_SECRET || 'clave-secreta-super-segura';
 
 export async function POST(req: Request) {
   try {
+    // Validar horario
+    if (!isWellnessAvailable()) {
+      return NextResponse.json(
+        { error: 'El formulario de Wellness solo está disponible de 9:00 a 12:00' },
+        { status: 403 },
+      );
+    }
+
     const cookieStore = cookies();
     const token = (await cookieStore).get('user_token')?.value;
     if (!token) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -26,9 +36,14 @@ export async function POST(req: Request) {
     const playerId = player[0].id;
     const playerName = `${player[0].firstname} ${player[0].lastname}`;
     const data = await req.json();
-    const now = new Date();
 
-    const today = now.toLocaleDateString('en-CA', { timeZone: 'Europe/Madrid' });
+    const getTodaySpain = () => {
+      const now = new Date();
+      const spainTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
+      return spainTime.toISOString().split('T')[0];
+    };
+
+    const today = getTodaySpain();
 
     const existing = await db
       .select()
