@@ -88,7 +88,6 @@ export default function PlayerWelcomePage() {
 
   const wellnessAvailable = isWellnessAvailable();
   const loadAvailable = isLoadAvailable();
-  const currentHour = getCurrentHourInSpain();
 
 
 
