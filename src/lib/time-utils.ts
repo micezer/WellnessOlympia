@@ -7,10 +7,10 @@ export function getCurrentHourInSpain(): number {
 
 export function isWellnessAvailable(): boolean {
   const hour = getCurrentHourInSpain();
-  return hour >= 9 && hour < 12; // de 9:00 a 11:59 (hasta las 12:00 exclusive)
+  return hour >= 8 && hour <= 12; // de 8:00 a 11:59 (hasta las 12:00 exclusive)
 }
 
 export function isLoadAvailable(): boolean {
   const hour = getCurrentHourInSpain();
-  return hour >= 19 && hour <= 23; // de 19:00 a 23:59
+  return hour >= 20 && hour <= 23; // de 20:00 a 23:59
 }

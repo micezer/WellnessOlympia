@@ -168,7 +168,7 @@ export default function PlayerWelcomePage() {
                 </button>
               </Link>
             ) : (
-              <p className="text-yellow-400 font-medium">⏳ Disponible de 9:00 a 12:00</p>
+              <p className="text-yellow-400 font-medium">⏳ Disponible de 8:00 a 12:00</p>
             )}
           </div>
 
@@ -193,7 +193,7 @@ export default function PlayerWelcomePage() {
                 </button>
               </Link>
             ) : (
-              <p className="text-yellow-400 font-medium">⏳ Disponible de 19:00 a 23:59</p>
+              <p className="text-yellow-400 font-medium">⏳ Disponible de 20:00 a 23:59</p>
             )}
           </div>
         </div>
