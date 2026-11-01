@@ -18,9 +18,10 @@ let configured = false;
 // false si faltan las variables (la app funciona igual, solo que sin notificaciones)
 function configure(): boolean {
   if (configured) return true;
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT;
+  // trim: un espacio o salto de línea pegado en el panel de Vercel hace que Apple rechace todo (BadJwtToken)
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
+  const subject = process.env.VAPID_SUBJECT?.trim();
   if (!publicKey || !privateKey || !subject) {
     console.warn('⚠️ Push desactivado: faltan NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT');
     return false;

@@ -11,7 +11,7 @@ export async function POST() {
     const delivered = await sendToUser(session.role, session.user.id, {
       title: 'Notificación de prueba 🔔',
       body: '¡Funciona! Así te llegarán los avisos de Wellness Olympia.',
-      tag: 'test',
+      tag: `test-${Date.now()}`, // etiqueta nueva cada vez: con la misma, el sistema la sustituye sin avisar
     });
     if (!delivered)
       return NextResponse.json(

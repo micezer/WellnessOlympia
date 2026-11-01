@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 // denied: el usuario bloqueó las notificaciones (solo se puede cambiar en ajustes del sistema)
 export type PushState = 'loading' | 'unsupported' | 'denied' | 'off' | 'on';
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
 
 function isSupported() {
   return (
