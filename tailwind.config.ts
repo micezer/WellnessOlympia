@@ -10,6 +10,18 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Marca: verde de acción y superficies oscuras de la app de jugadoras
+        brand: {
+          DEFAULT: 'rgb(0, 255, 127)',
+          hover: 'rgb(0, 230, 115)',
+        },
+        ink: {
+          950: 'rgb(30, 35, 40)',
+          900: 'rgb(33, 37, 41)',
+          800: 'rgb(45, 50, 55)',
+          700: 'rgb(55, 60, 65)',
+          600: 'rgb(80, 86, 92)',
+        },
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

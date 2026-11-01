@@ -2,16 +2,14 @@ import withPWA from 'next-pwa';
 
 const nextConfig = {
   reactStrictMode: true,
-  // Agregar esto para ignorar errores de tipos temporalmente
-  typescript: {
-    ignoreBuildErrors: true,
-  },
 };
 
 export default withPWA({
   dest: 'public',
-  register: true,
+  register: false, // se registra en src/components/ServiceWorkerRegister.tsx (App Router)
   skipWaiting: true,
+  // Next no sirve este fichero (404) y un solo fallo en la precaché impide instalar el service worker
+  buildExcludes: [/app-build-manifest\.json$/],
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.(?:gstatic)\.com\/.*/i,

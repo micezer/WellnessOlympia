@@ -1,86 +1,64 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
 import { db } from '@/db/db';
-import { players, player_wellness, player_load } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { player_wellness, player_load } from '@/db/schema';
+import { and, eq, desc, gte } from 'drizzle-orm';
+import { getPlayerSession } from '@/lib/auth';
+import { addDays, getSpainDateString } from '@/lib/time-utils';
+import { computeStreak } from '@/lib/history';
+import { unreadForSender } from '@/lib/inquiries';
 
-const SECRET_KEY = process.env.JWT_SECRET || 'clave-secreta-super-segura';
+const STREAK_LOOKBACK_DAYS = 120;
 
 export async function GET() {
-  const cookieStore = cookies();
-  const token = (await cookieStore).get('user_token')?.value;
-
-  if (!token) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
   try {
-    const decoded = jwt.verify(token, SECRET_KEY) as { identifier: string; role: string };
-    if (decoded.role !== 'player')
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    const { player, response } = await getPlayerSession();
+    if (response) return response;
 
-    console.log('🔵 [STATUS] Buscando jugador con identifier:', decoded.identifier);
-
-    const playerData = await db
-      .select({
-        id: players.id,
-        firstname: players.firstname,
-        lastname: players.lastname,
-        team: players.team,
-        birth_date: players.birth_date,
-      })
-      .from(players)
-      .where(eq(players.identifier, decoded.identifier));
-
-    if (!playerData.length)
-      return NextResponse.json({ error: 'Jugador no encontrado' }, { status: 404 });
-
-    const player = playerData[0];
-    const playerId = playerData[0].id;
-
-    console.log(
-      '🔵 [STATUS] Jugador encontrado:',
-      player.firstname,
-      player.lastname,
-      'ID:',
-      playerId,
-    );
-
-    // Obtener la última fecha de wellness desde player_wellness
-    const lastWellness = await db
+    const today = getSpainDateString();
+    const recentWellness = await db
       .select({ date: player_wellness.date })
       .from(player_wellness)
-      .where(eq(player_wellness.player_id, playerId))
-      .orderBy(desc(player_wellness.date))
-      .limit(1);
+      .where(
+        and(
+          eq(player_wellness.player_id, player.id),
+          gte(player_wellness.date, addDays(today, -STREAK_LOOKBACK_DAYS)),
+        ),
+      )
+      .orderBy(desc(player_wellness.date));
 
-    console.log('🔵 [STATUS] Resultado wellness query:', lastWellness);
+    // Puede que el último wellness sea anterior a la ventana de la racha
+    const [lastWellness] = recentWellness.length
+      ? recentWellness
+      : await db
+          .select({ date: player_wellness.date })
+          .from(player_wellness)
+          .where(eq(player_wellness.player_id, player.id))
+          .orderBy(desc(player_wellness.date))
+          .limit(1);
 
-    // Obtener la última fecha de load desde player_load
-    const lastLoad = await db
+    const [lastLoad] = await db
       .select({ date: player_load.date })
       .from(player_load)
-      .where(eq(player_load.player_id, playerId))
+      .where(eq(player_load.player_id, player.id))
       .orderBy(desc(player_load.date))
       .limit(1);
 
-    console.log('🔵 [STATUS] Resultado load query:', lastLoad);
-
-    const response = {
+    return NextResponse.json({
       player: {
         firstname: player.firstname,
         lastname: player.lastname,
         team: player.team,
         birth_date: player.birth_date,
+        nickname: player.nickname,
+        avatar_color: player.avatar_color,
       },
-      wellness: lastWellness[0]?.date || null,
-      load: lastLoad[0]?.date || null,
-    };
-
-    console.log('🔵 [STATUS] Response final:', response);
-
-    return NextResponse.json(response);
+      wellness: lastWellness?.date || null,
+      load: lastLoad?.date || null,
+      unreadInquiries: await unreadForSender('player', player.id),
+      streak: computeStreak(new Set(recentWellness.map((w) => w.date)), today),
+    });
   } catch (err) {
-    console.error('❌ Error verificando token o fetch player:', err);
-    return NextResponse.json({ error: 'Token inválido o expirado' }, { status: 401 });
+    console.error('❌ Error en /api/player/forms/status:', err);
+    return NextResponse.json({ error: 'Error en el servidor' }, { status: 500 });
   }
 }

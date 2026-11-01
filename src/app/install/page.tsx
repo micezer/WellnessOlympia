@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { Button } from '@/components/brand/button';
 
 // Define el tipo para el evento de instalación
 interface BeforeInstallPromptEvent extends Event {
@@ -8,218 +9,155 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+type Platform = 'ios' | 'android' | 'desktop';
+type Step = { title: string; text: React.ReactNode };
+
+function detectPlatform(userAgent: string): Platform {
+  if (/iphone|ipad|ipod/.test(userAgent)) return 'ios';
+  if (/android/.test(userAgent)) return 'android';
+  return 'desktop';
+}
+
+function instructions(platform: Platform, userAgent: string): { heading: string; steps: Step[] } {
+  if (platform === 'ios')
+    return {
+      heading: '🍎 iPhone / iPad (Safari)',
+      steps: [
+        { title: 'Abre el menú compartir', text: <>Toca el icono de <strong>compartir</strong> 📤 en la barra.</> },
+        {
+          title: 'Añadir a pantalla de inicio',
+          text: <>Desliza hacia abajo y elige <strong>&quot;Añadir a pantalla de inicio&quot;</strong>.</>,
+        },
+        { title: 'Confirma', text: <>Toca <strong>&quot;Añadir&quot;</strong> arriba a la derecha.</> },
+      ],
+    };
+  if (platform === 'android')
+    return {
+      heading: '🤖 Android',
+      steps: [
+        {
+          title: 'Abre el menú del navegador',
+          text: <>Toca los <strong>tres puntos</strong> ⋮ arriba a la derecha.</>,
+        },
+        {
+          title: 'Instalar app',
+          text: <>Elige <strong>&quot;Instalar app&quot;</strong> o <strong>&quot;Añadir a pantalla de inicio&quot;</strong>.</>,
+        },
+        { title: 'Confirma', text: <>Toca <strong>&quot;Instalar&quot;</strong>.</> },
+      ],
+    };
+  if (/firefox/.test(userAgent))
+    return {
+      heading: '💻 Ordenador',
+      steps: [
+        {
+          title: 'Abre la app en Chrome o Edge',
+          text: 'Firefox no permite instalar aplicaciones web. Copia esta dirección en Chrome o Edge.',
+        },
+      ],
+    };
+  if (/safari/.test(userAgent) && !/chrome|chromium|edg/.test(userAgent))
+    return {
+      heading: '💻 Mac (Safari)',
+      steps: [
+        { title: 'Abre el menú Archivo', text: 'En la barra de menús de Safari.' },
+        { title: 'Añadir al Dock', text: <>Elige <strong>&quot;Añadir al Dock&quot;</strong> y confirma.</> },
+      ],
+    };
+  return {
+    heading: '💻 Ordenador (Chrome / Edge)',
+    steps: [
+      {
+        title: 'Busca el icono de instalar',
+        text: <>A la derecha de la barra de direcciones aparece un icono de <strong>instalar</strong> (una pantalla con una flecha).</>,
+      },
+      {
+        title: 'O desde el menú',
+        text: <>Menú ⋮ → <strong>&quot;Guardar y compartir&quot; → &quot;Instalar página como aplicación&quot;</strong> (en Edge: &quot;Aplicaciones&quot; → &quot;Instalar este sitio&quot;).</>,
+      },
+      { title: 'Confirma', text: <>Pulsa <strong>&quot;Instalar&quot;</strong>; la app se abrirá en su propia ventana.</> },
+    ],
+  };
+}
+
 export default function InstallPage() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isIOS, setIsIOS] = useState(false);
-  const [isAndroid, setIsAndroid] = useState(false);
-  const [isChrome, setIsChrome] = useState(false);
+  const [userAgent, setUserAgent] = useState('');
 
   useEffect(() => {
-    // Detectar dispositivo y navegador
-    const userAgent = navigator.userAgent.toLowerCase();
-    setIsIOS(/iphone|ipad|ipod/.test(userAgent));
-    setIsAndroid(/android/.test(userAgent));
-    setIsChrome(/chrome/.test(userAgent));
+    setUserAgent(navigator.userAgent.toLowerCase());
 
-    // Manejar evento de instalación
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
-
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-        // Recargar para que detecte como PWA
-        window.location.reload();
-      }
+    if (!deferredPrompt) return;
+    await deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+      // Recargar para que detecte como PWA
+      window.location.reload();
     }
   };
 
-  return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center bg-[rgb(33,37,41)] text-white p-6 overflow-y-auto">
-      <div className="text-center max-w-2xl w-full">
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <Image
-            src="/logos/app_logo.png"
-            alt="Wellness"
-            width={120}
-            height={120}
-            className="mx-auto"
-          />
-        </div>
+  const platform = detectPlatform(userAgent);
+  const { heading, steps } = instructions(platform, userAgent);
 
-        <h1 className="text-4xl font-bold mb-2">📲 Instalar App</h1>
-        <p className="text-lg mb-8 text-gray-300">
-          Para acceder a la aplicación, debes instalarla en tu dispositivo
+  return (
+    <div className="min-h-dvh bg-ink-900 text-white px-4 py-10 pt-[calc(env(safe-area-inset-top)+2.5rem)]">
+      <div className="max-w-lg mx-auto text-center">
+        <Image src="/logos/app_logo.png" alt="Wellness" width={110} height={110} className="mx-auto mb-6" />
+
+        <h1 className="text-3xl font-bold mb-2">Instala la app</h1>
+        <p className="text-gray-300 mb-8">
+          Para usar Wellness Olympia tienes que instalarla en tu dispositivo.
         </p>
 
-        {/* Botón de instalación directa (solo para Android/Chrome) */}
-        {deferredPrompt && isAndroid && (
+        {/* Instalación directa (Chrome/Edge en Android y ordenador) */}
+        {deferredPrompt && (
           <div className="mb-8">
-            <button
-              onClick={handleInstall}
-              className="w-full max-w-md bg-green-500 hover:bg-green-600 text-black font-bold py-4 px-8 rounded-lg text-lg transition shadow-lg mb-4"
-            >
-              ⚡ Instalar App Ahora
-            </button>
-            <p className="text-sm text-gray-400">
-              Instalación directa disponible para tu dispositivo
-            </p>
+            <Button onClick={handleInstall} className="w-full text-lg">
+              ⚡ Instalar ahora
+            </Button>
+            <p className="text-sm text-gray-400 mt-2">Un toque y listo</p>
           </div>
         )}
 
-        {/* Instrucciones para Android */}
-        {(isAndroid || !isIOS) && (
-          <div className="mb-8 p-6 bg-[rgb(45,50,55)] rounded-xl border border-gray-700">
-            <h2 className="text-2xl font-bold mb-4 flex items-center justify-center gap-2">
-              <span>🤖</span> Instrucciones para Android
-            </h2>
-
-            {isChrome ? (
-              // Instrucciones para Chrome Android
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 p-3 bg-[rgb(55,60,65)] rounded-lg">
-                  <span className="text-xl">1️⃣</span>
-                  <div className="text-left">
-                    <p className="font-semibold">Abre el menú de Chrome</p>
-                    <p className="text-sm text-gray-300">
-                      Toca los <strong>tres puntos verticales</strong> ⋮ en la esquina superior
-                      derecha
-                    </p>
+        {userAgent && (
+          <section className="mb-8 p-5 bg-ink-800 rounded-2xl text-left">
+            <h2 className="text-xl font-bold mb-4 text-center">{heading}</h2>
+            <ol className="space-y-3">
+              {steps.map((step, i) => (
+                <li key={step.title} className="flex items-start gap-3 p-3 bg-ink-700 rounded-xl">
+                  <span className="w-7 h-7 shrink-0 rounded-full bg-brand text-black font-bold flex items-center justify-center text-sm">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <p className="font-semibold">{step.title}</p>
+                    <p className="text-sm text-gray-300">{step.text}</p>
                   </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-[rgb(55,60,65)] rounded-lg">
-                  <span className="text-xl">2️⃣</span>
-                  <div className="text-left">
-                    <p className="font-semibold">Selecciona &quot;Instalar app&quot;</p>
-                    <p className="text-sm text-gray-300">
-                      Busca la opción <strong>&quot;Instalar app&quot;</strong> o{' '}
-                      <strong>&quot;Add to Home Screen&quot;</strong>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-[rgb(55,60,65)] rounded-lg">
-                  <span className="text-xl">3️⃣</span>
-                  <div className="text-left">
-                    <p className="font-semibold">Confirma la instalación</p>
-                    <p className="text-sm text-gray-300">
-                      Toca <strong>&quot;Instalar&quot;</strong> o <strong>&quot;Add&quot;</strong>{' '}
-                      en el diálogo de confirmación
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              // Instrucciones genéricas para Android
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 p-3 bg-[rgb(55,60,65)] rounded-lg">
-                  <span className="text-xl">1️⃣</span>
-                  <div className="text-left">
-                    <p className="font-semibold">Abre el menú del navegador</p>
-                    <p className="text-sm text-gray-300">
-                      Busca el menú (tres puntos o líneas) en la esquina superior
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-[rgb(55,60,65)] rounded-lg">
-                  <span className="text-xl">2️⃣</span>
-                  <div className="text-left">
-                    <p className="font-semibold">Busca &quot;Añadir a pantalla principal&quot;</p>
-                    <p className="text-sm text-gray-300">
-                      Selecciona la opción para instalar o añadir a inicio
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-[rgb(55,60,65)] rounded-lg">
-                  <span className="text-xl">3️⃣</span>
-                  <div className="text-left">
-                    <p className="font-semibold">Confirma la instalación</p>
-                    <p className="text-sm text-gray-300">
-                      Sigue las instrucciones para completar la instalación
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+                </li>
+              ))}
+            </ol>
+          </section>
         )}
 
-        {/* Instrucciones para iOS */}
-        {isIOS && (
-          <div className="mb-8 p-6 bg-[rgb(45,50,55)] rounded-xl border border-gray-700">
-            <h2 className="text-2xl font-bold mb-4 flex items-center justify-center gap-2">
-              <span>🍎</span> Instrucciones para iPhone/iPad
-            </h2>
-
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 p-3 bg-[rgb(55,60,65)] rounded-lg">
-                <span className="text-xl">1️⃣</span>
-                <div className="text-left">
-                  <p className="font-semibold">Abre el menú compartir</p>
-                  <p className="text-sm text-gray-300">
-                    Toca el ícono de <strong>compartir</strong> 📤 en la barra.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 bg-[rgb(55,60,65)] rounded-lg">
-                <span className="text-xl">2️⃣</span>
-                <div className="text-left">
-                  <p className="font-semibold">Desplaza y selecciona</p>
-                  <p className="text-sm text-gray-300">
-                    Desliza hacia arriba y busca <strong>&quot;Add to Home Screen&quot;</strong> o{' '}
-                    <strong>&quot;Añadir a pantalla de inicio&quot;</strong>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 bg-[rgb(55,60,65)] rounded-lg">
-                <span className="text-xl">3️⃣</span>
-                <div className="text-left">
-                  <p className="font-semibold">Confirma la instalación</p>
-                  <p className="text-sm text-gray-300">
-                    Toca <strong>&quot;Add&quot;</strong> en la esquina superior derecha
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Mensaje final */}
-        <div className="mt-8 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
-          <h3 className="font-semibold text-blue-300 mb-2">💡 Después de instalar:</h3>
+        <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-xl text-left">
+          <h3 className="font-semibold text-blue-300 mb-1">💡 Después de instalar</h3>
           <p className="text-sm text-blue-200">
-            La app aparecerá en tu pantalla de inicio como una aplicación nativa. Ábrela desde allí
-            para comenzar a usarla.
+            Abre la app desde su icono ({platform === 'desktop' ? 'escritorio o menú de inicio' : 'pantalla de inicio'}), no desde el navegador.
           </p>
         </div>
 
-        {/* Botón de verificación (para cuando ya instalaron) */}
-        <div className="mt-6">
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition"
-          >
-            🔄 Ya instalé la app
-          </button>
-        </div>
+        <Button variant="secondary" onClick={() => window.location.reload()} className="mt-6">
+          🔄 Ya la he instalado
+        </Button>
       </div>
     </div>
   );

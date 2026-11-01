@@ -34,13 +34,12 @@ export default function PWARedirect() {
 
     // 🔥 OBLIGATORIO: Si NO es PWA y NO está en página de instalación -> REDIRIGIR
     if (!isPWA && !isAllowedPath) {
-      console.log('🔁 Redirigiendo obligatoriamente a /install');
-      router.push('/install');
+      router.replace('/install');
     }
 
     // Si ES PWA y está en página de instalación -> redirigir a home
     else if (isPWA && pathname === '/install') {
-      router.push('/');
+      router.replace('/');
     }
   }, [isPWA, pathname, router]);
 

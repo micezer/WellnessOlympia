@@ -3,22 +3,83 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { isWellnessAvailable, isLoadAvailable } from '@/lib/time-utils';
-
+import { CheckCircle2, Clock, ChevronRight } from 'lucide-react';
+import {
+  isWellnessAvailable,
+  isLoadAvailable,
+  getSpainDateString,
+  getCurrentHourInSpain,
+  formatDateLong,
+  formatDateRelative,
+  formatWindow,
+  WELLNESS_WINDOW,
+  LOAD_WINDOW,
+} from '@/lib/time-utils';
+import { PlayerShell } from '@/components/brand/player-shell';
+import { Avatar } from '@/components/brand/avatar';
+import { Button, buttonClass } from '@/components/brand/button';
+import { NotificationsPrompt } from '@/components/brand/notifications';
+import { WhatsNew } from '@/components/whats-new';
 
 interface Player {
   firstname: string;
   lastname: string;
   team: string;
   birth_date: string | null;
+  nickname: string | null;
+  avatar_color: string | null;
 }
 
 interface FormStatus {
   player: Player;
   wellness: string | null;
   load: string | null;
-  birth_date: string | null;
+  streak: number;
+  unreadInquiries: number;
+}
+
+type FormCardProps = {
+  title: string;
+  description: string;
+  href: string;
+  lastDate: string | null;
+  window: { start: number; end: number };
+  available: boolean;
+};
+
+function FormCard({ title, description, href, lastDate, window, available }: FormCardProps) {
+  const done = lastDate === getSpainDateString();
+  const closedToday = !done && !available && getCurrentHourInSpain() >= window.start;
+
+  return (
+    <section className="rounded-2xl bg-ink-800 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <p className="text-sm text-gray-400">{description}</p>
+        </div>
+        {done && <CheckCircle2 className="w-7 h-7 shrink-0 text-brand" aria-label="Completado" />}
+      </div>
+
+      <div className="mt-4">
+        {done ? (
+          <p className="text-brand font-medium">Completado hoy</p>
+        ) : available ? (
+          <Link href={href} className={buttonClass('primary', 'w-full')}>
+            Rellenar ahora <ChevronRight className="w-5 h-5" />
+          </Link>
+        ) : (
+          <p className="flex items-center gap-2 text-yellow-300 text-sm font-medium">
+            <Clock className="w-4 h-4 shrink-0" />
+            {closedToday
+              ? `Hoy ya está cerrado · mañana de ${formatWindow(window)}`
+              : `Disponible de ${formatWindow(window)}`}
+          </p>
+        )}
+        <p className="text-xs text-gray-500 mt-3">Último: {formatDateRelative(lastDate)}</p>
+      </div>
+    </section>
+  );
 }
 
 export default function PlayerWelcomePage() {
@@ -26,22 +87,20 @@ export default function PlayerWelcomePage() {
   const [showBirthModal, setShowBirthModal] = useState(false);
   const [birthDate, setBirthDate] = useState('');
   const [saving, setSaving] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const router = useRouter();
-
-  // Mover la función dentro del componente para evitar dependencias
-  const getToday = () => {
-    const now = new Date();
-    const offset = 1; // España UTC+1
-    const spainTime = new Date(now.getTime() + offset * 60 * 60 * 1000);
-    return spainTime.toISOString().split('T')[0];
-  };
+  // Fuerza re-render para que la disponibilidad de formularios no se quede obsoleta
+  const [, setTick] = useState(0);
 
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
+    const refresh = () => setTick((t) => t + 1);
+    const interval = setInterval(refresh, 60 * 1000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, []);
 
+  useEffect(() => {
     async function fetchStatus() {
       const res = await fetch('/api/player/forms/status');
       if (!res.ok) return;
@@ -50,64 +109,29 @@ export default function PlayerWelcomePage() {
       setShowBirthModal(!data.player.birth_date);
     }
     fetchStatus();
+  }, []);
 
-    return () => {
-      document.body.style.overflow = 'unset';
-      document.documentElement.style.overflow = 'unset';
-    };
-  }, []); // Eliminar dependencias problemáticas
+  if (!status)
+    return (
+      <PlayerShell className="flex items-center justify-center">
+        <p className="text-gray-400">Cargando...</p>
+      </PlayerShell>
+    );
 
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      const res = await fetch('/api/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      if (res.ok) {
-        // Redirigir al login después de cerrar sesión
-        router.push('/');
-      } else {
-        console.error('Error al cerrar sesión');
-        setLoggingOut(false);
-      }
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-      setLoggingOut(false);
-    }
-  };
-
-  if (!status) return <p className="text-white text-center mt-10">Cargando...</p>;
-
-  const today = getToday(); // Para el render
-  const alreadyDone = {
-    wellness: status.wellness === today,
-    load: status.load === today,
-  };
-
-  const wellnessAvailable = isWellnessAvailable();
-  const loadAvailable = isLoadAvailable();
-
-
+  const today = getSpainDateString();
 
   const handleSaveBirthDate = async () => {
     if (!birthDate) return;
     setSaving(true);
     try {
-      const res = await fetch('/api/player/update-birth', {
+      const res = await fetch('/api/player/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ birth_date: birthDate }),
       });
       if (res.ok) {
         setShowBirthModal(false);
-        setStatus({
-          ...status,
-          player: { ...status.player, birth_date: birthDate },
-        });
-      } else {
-        console.error('Error actualizando fecha de nacimiento');
+        setStatus({ ...status, player: { ...status.player, birth_date: birthDate } });
       }
     } catch (err) {
       console.error('Error al guardar fecha de nacimiento:', err);
@@ -117,149 +141,77 @@ export default function PlayerWelcomePage() {
   };
 
   return (
-    <main
-      className="flex flex-col items-center min-h-screen w-full fixed top-0 left-0 overflow-hidden"
-      style={{ backgroundColor: 'rgb(33, 37, 41)' }}
-    >
-      {/* Header con botón de logout */}
-      <header className="w-full text-white shadow-md text-center flex flex-col items-center gap-4 py-4 relative">
-        <div className="flex justify-center items-center gap-8">
-          <Image src="/logos/app_logo.png" alt="Wellness" width={130} height={130} />
-        </div>
-        <h1 className="text-2xl font-bold">
-          Bienvenida, {status.player.firstname} {status.player.lastname}
-        </h1>
-        <p className="text-sm opacity-90">Equipo: {status.player.team}</p>
-
-        {/* Botón de logout */}
-        <button
-          onClick={() => setShowLogoutModal(true)}
-          className="absolute top-4 right-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+    <PlayerShell>
+      {/* Cabecera: logo, saludo y acceso al perfil */}
+      <header className="flex items-center justify-between gap-3">
+        <Image src="/logos/app_logo.png" alt="Wellness" width={56} height={56} />
+        <Link
+          href="/player/profile"
+          aria-label={status.unreadInquiries ? 'Mi perfil (tienes respuestas sin leer)' : 'Mi perfil'}
+          className="relative rounded-full ring-2 ring-ink-700 hover:ring-brand transition"
         >
-          Cerrar Sesión
-        </button>
+          {status.unreadInquiries > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 z-10 w-3.5 h-3.5 rounded-full bg-brand ring-2 ring-ink-900" />
+          )}
+          <Avatar
+            firstname={status.player.firstname}
+            lastname={status.player.lastname}
+            color={status.player.avatar_color}
+          />
+        </Link>
       </header>
 
-      {/* Formularios */}
-      <div
-        className="shadow-md rounded-2xl p-8 w-full max-w-md mx-auto"
-        style={{ backgroundColor: 'rgb(45, 50, 55)' }}
-      >
-        <h1 className="text-2xl font-bold mb-6 text-center text-white">📋 Formularios diarios</h1>
-        <div className="space-y-6">
-          {/* Wellness */}
-          <div
-            className="p-4 rounded-lg shadow"
-            style={{ backgroundColor: 'rgb(55, 60, 65)', color: 'white' }}
-          >
-            <h2 className="font-semibold mb-2">Wellness</h2>
-            <p className="text-sm text-gray-300 mb-3">
-              Último formulario: {status.wellness || 'No completado'}
-            </p>
-            {alreadyDone.wellness ? (
-              <p className="text-green-400 font-medium">✅ Formulario completado hoy</p>
-            ) : wellnessAvailable ? (
-              <Link href="/player/forms/wellness">
-                <button
-                  className="w-full py-2 rounded-md font-semibold text-black"
-                  style={{ backgroundColor: 'rgb(0, 255, 127)' }}
-                >
-                  Rellenar Wellness
-                </button>
-              </Link>
-            ) : (
-              <p className="text-yellow-400 font-medium">⏳ Disponible de 8:00 a 12:00</p>
-            )}
-          </div>
-
-          {/* Load */}
-          <div
-            className="p-4 rounded-lg shadow"
-            style={{ backgroundColor: 'rgb(55, 60, 65)', color: 'white' }}
-          >
-            <h2 className="font-semibold mb-2">Carga de entrenamiento (RPE)</h2>
-            <p className="text-sm text-gray-300 mb-3">
-              Último formulario: {status.load || 'No completado'}
-            </p>
-            {alreadyDone.load ? (
-              <p className="text-green-400 font-medium">✅ Formulario completado hoy</p>
-            ) : loadAvailable ? (
-              <Link href="/player/forms/load">
-                <button
-                  className="w-full py-2 rounded-md font-semibold text-black"
-                  style={{ backgroundColor: 'rgb(0, 255, 127)' }}
-                >
-                  Rellenar RPE
-                </button>
-              </Link>
-            ) : (
-              <p className="text-yellow-400 font-medium">⏳ Disponible de 20:00 a 23:59</p>
-            )}
-          </div>
-        </div>
+      <div className="mt-6 mb-6">
+        <p className="text-sm text-gray-400 capitalize">{formatDateLong(today)}</p>
+        <h1 className="text-2xl font-bold mt-1">Hola, {status.player.nickname || status.player.firstname} 👋</h1>
+        <p className="text-sm text-gray-400 mt-1">{status.player.team}</p>
+        {status.streak > 1 && (
+          <p className="inline-flex mt-3 px-3 py-1 rounded-full bg-orange-500/15 text-orange-300 text-sm font-medium">
+            🔥 {status.streak} días seguidos
+          </p>
+        )}
       </div>
 
-      {/* Footer */}
-      <footer className="text-gray-400 text-sm py-4 mt-auto">
-        Última actualización: {getToday()}
-      </footer>
+      <div className="space-y-4">
+        <NotificationsPrompt />
+        <FormCard
+          title="Wellness"
+          description="Cómo te encuentras hoy"
+          href="/player/forms/wellness"
+          lastDate={status.wellness}
+          window={WELLNESS_WINDOW}
+          available={isWellnessAvailable()}
+        />
+        <FormCard
+          title="Carga de entrenamiento (RPE)"
+          description="Esfuerzo y molestias tras entrenar"
+          href="/player/forms/load"
+          lastDate={status.load}
+          window={LOAD_WINDOW}
+          available={isLoadAvailable()}
+        />
+      </div>
+
+      <WhatsNew variant="dark" paused={showBirthModal} />
 
       {/* Modal fecha de nacimiento */}
       {showBirthModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
-          <div className="bg-[rgb(33,37,41)] p-6 rounded-2xl shadow-lg w-80 text-center">
-            <h2 className="text-xl font-bold text-white mb-4">Introduce tu fecha de nacimiento</h2>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-ink-800 p-6 rounded-2xl shadow-lg w-full max-w-sm text-center">
+            <h2 className="text-xl font-bold mb-4">Introduce tu fecha de nacimiento</h2>
             <input
               type="date"
               value={birthDate}
               onChange={(e) => setBirthDate(e.target.value)}
-              className="w-full p-2 rounded-md mb-4"
-              max={getToday()}
+              className="w-full p-3 rounded-xl mb-4 bg-white text-black"
+              max={today}
             />
-            <button
-              onClick={handleSaveBirthDate}
-              disabled={saving}
-              className="w-full py-2 rounded-md font-semibold text-black"
-              style={{ backgroundColor: 'rgb(0, 255, 127)' }}
-            >
-              {saving ? 'Guardando...' : 'Guardar'}
-            </button>
+            <Button onClick={handleSaveBirthDate} loading={saving} disabled={!birthDate} className="w-full">
+              Guardar
+            </Button>
           </div>
         </div>
       )}
-
-      {/* Modal de confirmación de logout */}
-      {showLogoutModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
-          <div className="bg-[rgb(33,37,41)] p-6 rounded-2xl shadow-lg w-80 text-center">
-            <h2 className="text-xl font-bold text-white mb-4">Cerrar Sesión</h2>
-            <p className="text-gray-300 mb-6">¿Estás segura de que quieres cerrar sesión?</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowLogoutModal(false)}
-                className="flex-1 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-semibold transition-colors"
-                disabled={loggingOut}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-semibold transition-colors flex items-center justify-center gap-2"
-              >
-                {loggingOut ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Saliendo...
-                  </>
-                ) : (
-                  'Sí, Cerrar Sesión'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </main>
+    </PlayerShell>
   );
 }

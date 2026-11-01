@@ -137,4 +137,37 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Sin barras de scroll visibles en ningún sitio (el scroll sigue funcionando) */
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  /* Slider de la app: pista rellena hasta el valor (--pct) y pulgar grande para el dedo */
+  .range-brand {
+    @apply w-full h-2 rounded-full appearance-none cursor-pointer;
+    background: linear-gradient(
+      to right,
+      theme('colors.brand.DEFAULT') var(--pct, 0%),
+      theme('colors.ink.600') var(--pct, 0%)
+    );
+  }
+  .range-brand::-webkit-slider-thumb {
+    @apply appearance-none w-7 h-7 rounded-full bg-white shadow-md;
+    border: 3px solid theme('colors.brand.DEFAULT');
+  }
+  .range-brand::-moz-range-thumb {
+    @apply w-6 h-6 rounded-full bg-white shadow-md;
+    border: 3px solid theme('colors.brand.DEFAULT');
+  }
+}
+
+/* Sin navegación atrás/adelante al deslizar hacia los lados (Chrome, trackpad) */
+html,
+body {
+  overscroll-behavior-x: none;
 }

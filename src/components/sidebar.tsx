@@ -9,12 +9,17 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { Home, RefreshCcw, LogOut } from 'lucide-react';
+import { Home, RefreshCcw, LogOut, KeyRound, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { detachPushSubscription } from '@/hooks/usePushSubscription';
+import { PushToggle } from '@/components/push-toggle';
+import { ChangePasswordDialog } from '@/components/change-password-dialog';
 import { usePathname, useRouter } from 'next/navigation';
 
 // ✅ Define el tipo para el coach
 interface Coach {
+  identifier: string;
   firstname: string;
   secondname: string;
   chosen_team?: string;
@@ -26,6 +31,7 @@ type SidebarItem = {
   href?: string;
   action?: () => void;
   className?: string;
+  badge?: number;
 };
 
 export function AppSideBar() {
@@ -34,6 +40,16 @@ export function AppSideBar() {
   // ✅ Cambia any por Coach | null
   const [coach, setCoach] = useState<Coach | null>(null);
   const [loading, setLoading] = useState(true);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [unreadInquiries, setUnreadInquiries] = useState(0);
+
+  // Respuestas sin leer en Consultas (se vuelve a mirar al cambiar de página)
+  useEffect(() => {
+    fetch('/api/inquiries', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setUnreadInquiries(data.unread))
+      .catch(() => {});
+  }, [pathname]);
 
   useEffect(() => {
     async function fetchCoach() {
@@ -50,13 +66,6 @@ export function AppSideBar() {
     }
     fetchCoach();
   }, []);
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Buenos días';
-    if (hour < 19) return 'Buenas tardes';
-    return 'Buenas noches';
-  };
 
   const goToDashboard = async () => {
     try {
@@ -85,8 +94,9 @@ export function AppSideBar() {
   };
 
   const handleLogout = async () => {
+    await detachPushSubscription(); // este dispositivo deja de recibir avisos de esta cuenta
     await fetch('/api/logout', { method: 'POST' }); // endpoint que borra la cookie
-    window.location.href = '/login';
+    window.location.replace('/');
   };
 
   const sideBarItems: SidebarItem[] = [
@@ -98,6 +108,17 @@ export function AppSideBar() {
       className: 'text-[rgb(34,197,94)] font-semibold',
     },
     {
+      name: 'Consultas',
+      href: '/coach/inquiries',
+      icon: <MessageCircle className="w-5 h-5" />,
+      badge: unreadInquiries,
+    },
+    {
+      name: 'Cambiar contraseña',
+      action: () => setPasswordOpen(true),
+      icon: <KeyRound className="w-5 h-5" />,
+    },
+    {
       name: 'Cerrar sesión',
       action: handleLogout,
       icon: <LogOut className="w-5 h-5" />, // 🔹 icono de logout
@@ -106,42 +127,68 @@ export function AppSideBar() {
   ];
 
   return (
-    <Sidebar side="left" className="w-64 bg-gray-100 text-black">
-      <SidebarHeader className="p-4 border-b border-gray-300">
-        {!loading && coach && (
-          <h1 className="text-2xl font-bold">
-            {`${getGreeting()}, ${coach.firstname} ${coach.secondname}`}
-          </h1>
-        )}
-      </SidebarHeader>
+    <>
+      <Sidebar side="left" className="w-64 bg-gray-100 text-black">
+        <SidebarHeader className="p-4 border-b border-gray-300">
+          <div className="flex items-center gap-3">
+            <Image src="/logos/app_logo.png" alt="Wellness" width={40} height={40} />
+            <div className="min-w-0">
+              <p className="font-bold leading-tight">Wellness Olympia</p>
+              {!loading && coach && (
+                <p className="text-sm text-gray-500 truncate">
+                  {coach.firstname} {coach.secondname}
+                  {coach.chosen_team && ` · ${coach.chosen_team}`}
+                </p>
+              )}
+            </div>
+          </div>
+        </SidebarHeader>
 
-      <SidebarContent className="mt-4">
-        <SidebarMenu>
-          {sideBarItems.map((item, index) => (
-            <SidebarMenuItem key={index}>
-              {item.action ? (
-                <SidebarMenuButton
-                  onClick={item.action}
-                  className={`hover:bg-gray-200 text-black ${item.className || ''}`}
-                >
-                  {item.icon}
-                  <span>{item.name}</span>
-                </SidebarMenuButton>
-              ) : (
-                <Link href={item.href || '#'}>
+        <SidebarContent className="mt-4">
+          <SidebarMenu>
+            {sideBarItems.map((item, index) => (
+              <SidebarMenuItem key={index}>
+                {item.action ? (
                   <SidebarMenuButton
-                    isActive={pathname === item.href}
+                    onClick={item.action}
                     className={`hover:bg-gray-200 text-black ${item.className || ''}`}
                   >
                     {item.icon}
                     <span>{item.name}</span>
                   </SidebarMenuButton>
-                </Link>
-              )}
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarContent>
-    </Sidebar>
+                ) : (
+                  <Link href={item.href || '#'}>
+                    <SidebarMenuButton
+                      isActive={pathname === item.href}
+                      className={`hover:bg-gray-200 text-black ${item.className || ''}`}
+                    >
+                      {item.icon}
+                      <span>{item.name}</span>
+                      {!!item.badge && (
+                        <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-green-600 text-white text-xs flex items-center justify-center">
+                          {item.badge}
+                        </span>
+                      )}
+                    </SidebarMenuButton>
+                  </Link>
+                )}
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+          <PushToggle
+            className="mx-2 mt-6"
+            description="Te avisamos si una jugadora indica una lesión o pide restablecer su contraseña."
+          />
+        </SidebarContent>
+      </Sidebar>
+      {/* Fuera del Sidebar: en móvil el menú se cierra y desmontaría el diálogo */}
+      {coach && (
+        <ChangePasswordDialog
+          identifier={coach.identifier}
+          open={passwordOpen}
+          onOpenChange={setPasswordOpen}
+        />
+      )}
+    </>
   );
 }

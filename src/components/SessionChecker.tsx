@@ -25,15 +25,15 @@ export default function SessionChecker() {
         if (res.ok && data.isAuthenticated) {
           // Usuario autenticado - redirigir a su dashboard
           if (pathname === '/') {
-            router.push(data.redirectUrl);
+            router.replace(data.redirectUrl);
           }
         } else {
           // Usuario NO autenticado - solo redirigir si está en una ruta protegida
-          const protectedRoutes = ['/coach', '/player', '/dashboard'];
+          const protectedRoutes = ['/coach', '/player', '/dashboard', '/admin'];
           const isProtectedRoute = protectedRoutes.some((route) => pathname?.startsWith(route));
 
           if (isProtectedRoute) {
-            router.push('/');
+            router.replace('/');
           }
         }
       } catch (error) {

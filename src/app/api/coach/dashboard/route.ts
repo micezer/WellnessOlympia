@@ -1,62 +1,37 @@
 // src/app/api/coach/dashboard/route.ts
 import { db } from '@/db/db';
-import { players, player_load, player_wellness, coaches } from '@/db/schema';
-import { eq, and, not, inArray, gte, lte } from 'drizzle-orm';
-import jwt from 'jsonwebtoken';
-import { cookies } from 'next/headers';
+import { players, player_load, player_wellness } from '@/db/schema';
+import { eq, and, or, ne, isNull, isNotNull, inArray, gte, lte, asc } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
+import { getSpainDateString, addDays } from '@/lib/time-utils';
+import { average, computeLoadScore, computeWellnessScore, moodScore } from '@/lib/metrics';
+import { getCoachSession } from '@/lib/auth';
 
-const SECRET_KEY = process.env.JWT_SECRET || 'clave-secreta-super-segura';
-
-const moodValues: Record<string, number> = {
-  bien: 8,
-  feliz: 7,
-  energica: 6,
-  motivada: 5,
-  cambios_de_humor: 4,
-  triste: 3,
-  irritable: 2,
-  frustrada: 1,
-};
+// Más reciente primero: por fecha del formulario y, en el mismo día, por hora de envío
+const byNewest = (
+  a: { date: string; created_at: Date | null },
+  b: { date: string; created_at: Date | null },
+) =>
+  b.date.localeCompare(a.date) ||
+  (b.created_at?.getTime() ?? 0) - (a.created_at?.getTime() ?? 0);
 
 export async function GET(req: Request) {
   try {
-    // 1️⃣ Obtener coach desde token
-    const cookieStore = cookies();
-    const userTokenCookie = (await cookieStore).get('user_token');
-    const token = userTokenCookie?.value;
-    if (!token) return NextResponse.json({ message: 'Token no encontrado' }, { status: 401 });
-
-    let payload: unknown;
-    try {
-      payload = jwt.verify(token, SECRET_KEY!);
-    } catch {
-      return NextResponse.json({ message: 'Token inválido' }, { status: 401 });
-    }
-
-    const coachData = await db
-      .select()
-      .from(coaches)
-      .where(eq(coaches.identifier, (payload as { identifier: string }).identifier));
-
-    if (!coachData.length)
-      return NextResponse.json({ message: 'Coach no encontrado' }, { status: 404 });
-
-    const coach = coachData[0];
+    // 1️⃣ Coach desde la sesión
+    const { coach, response } = await getCoachSession();
+    if (response) return response;
     if (!coach.chosen_team)
       return NextResponse.json({ message: 'Coach no tiene equipo seleccionado' }, { status: 400 });
 
     // 2️⃣ Fecha seleccionada y rango para gráficos (últimos 7 días)
     const url = new URL(req.url);
     const dateParam = url.searchParams.get('date');
-    const selectedDate = dateParam ? new Date(dateParam) : new Date();
-    const dateString = selectedDate.toISOString().split('T')[0];
+    const dateString =
+      dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : getSpainDateString();
 
     const positionParam = url.searchParams.get('position'); // puede ser 'portera' o 'jugadora'
 
-    const startDate = new Date(selectedDate);
-    startDate.setDate(selectedDate.getDate() - 6); // últimos 7 días
-    const startDateString = startDate.toISOString().split('T')[0];
+    const startDateString = addDays(dateString, -6); // últimos 7 días
 
     // 3️⃣ Obtener jugadoras
     // 3️⃣ Obtener jugadoras según posición
@@ -70,7 +45,13 @@ export async function GET(req: Request) {
       teamPlayers = await db
         .select()
         .from(players)
-        .where(and(eq(players.team, coach.chosen_team), not(eq(players.position, 'Portera'))));
+        .where(
+          and(
+            eq(players.team, coach.chosen_team),
+            // NULL también es jugadora de campo (NOT (NULL = x) es NULL en SQL)
+            or(isNull(players.position), ne(players.position, 'Portera')),
+          ),
+        );
     }
 
     const playerIds = teamPlayers.map((p) => p.id);
@@ -103,114 +84,77 @@ export async function GET(req: Request) {
       const playerLoadForms = loadForms.filter((f) => f.player_id === player.id);
       const playerWellnessForms = wellnessForms.filter((f) => f.player_id === player.id);
 
-      const avgRPE = playerLoadForms.length
-        ? playerLoadForms.reduce((sum, f) => sum + (Number(f.rpe) || 0), 0) / playerLoadForms.length
-        : 0;
-      const loadScore = (avgRPE / 10) * 100;
+      const loadScore = average(playerLoadForms.map((f) => computeLoadScore(f.rpe)));
+      const wellnessScore = average(playerWellnessForms.map(computeWellnessScore));
+      const avgMood = average(playerWellnessForms.map((f) => moodScore(f.mood)));
 
-      // ✅ Cálculo robusto de wellnessScore
-      const wellnessScore = playerWellnessForms.length
-        ? (playerWellnessForms.reduce((sum, f) => {
-            const fatigue = Number(f.fatigue_level) || 0;
-            const tiredness = Number(f.tiredness_level) || 0;
-            const stress = Number(f.stress_level) || 0;
-            const mood = moodValues[f.mood] || 0;
-            const sleep = Math.min(Number(f.sleep_hours) || 0, 8); // máximo 8h
+      const lastWellness = [...playerWellnessForms].sort(byNewest)[0];
+      const lastLoad = [...playerLoadForms].sort(byNewest)[0];
 
-            // normalizamos a 0–10 (más alto = mejor)
-            const normalized = (10 - fatigue + (10 - tiredness) + (10 - stress) + mood + sleep) / 5;
-
-            return sum + normalized;
-          }, 0) /
-            playerWellnessForms.length) *
-          10 // escala a 0–100
-        : 0;
-
-      const moodScore = playerWellnessForms.length
-        ? playerWellnessForms.reduce((sum, f) => sum + (moodValues[f.mood] || 0), 0) /
-          playerWellnessForms.length
-        : 0;
-
-      const lastWellness = playerWellnessForms.sort((a, b) => {
-        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return bTime - aTime;
-      })[0]; // 🔹 primer elemento del array ordenado
-
-      const lastLoad = playerLoadForms.sort((a, b) => {
-        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return bTime - aTime;
-      })[0]; // 🔹 primer elemento del array ordenado
-
-      const formsToday =
-        playerLoadForms.filter((f) => f.date === dateString).length +
-        playerWellnessForms.filter((f) => f.date === dateString).length;
+      const wellnessToday = playerWellnessForms.some((f) => f.date === dateString);
+      const loadToday = playerLoadForms.some((f) => f.date === dateString);
 
       return {
         id: player.id,
         name: `${player.firstname} ${player.lastname}`,
+        firstname: player.firstname,
+        lastname: player.lastname,
+        nickname: player.nickname,
+        shirtNumber: player.shirt_number,
+        avatarColor: player.avatar_color,
         position: player.position,
         loadScore: Math.round(loadScore),
         wellnessScore: Math.round(wellnessScore * 10) / 10,
-        moodScore: moodScore,
+        moodScore: avgMood,
         mood: lastWellness?.mood || null,
         lastWellness,
         lastLoad,
-        formsToday,
+        wellnessToday,
+        loadToday,
+        formsToday: Number(wellnessToday) + Number(loadToday),
         isInjured: lastWellness?.is_injured || false,
+        hasPassword: !!player.password_hash,
+        resetRequested: !!player.reset_requested_at,
       };
     });
 
-    // 6️⃣ Calcular promedios diarios para gráficos
-    const dailyAveragesMap: Record<
-      string,
-      { sumLoad: number; sumWellness: number; sumMood: number; count: number }
-    > = {};
-
-    for (const d of wellnessForms) {
-      if (!dailyAveragesMap[d.date])
-        dailyAveragesMap[d.date] = { sumLoad: 0, sumWellness: 0, sumMood: 0, count: 0 };
-
-      // Calcular load
-      const pLoadForms = loadForms.filter((f) => f.player_id === d.player_id && f.date === d.date);
-      const avgRPE = pLoadForms.length
-        ? pLoadForms.reduce((sum, f) => sum + (Number(f.rpe) || 0), 0) / pLoadForms.length
-        : 0;
-      const loadScore = (avgRPE / 10) * 100;
-
-      // 🔹 Calcular wellness usando el mismo método robusto que en playersData
-      const fatigue = Number(d.fatigue_level) || 0;
-      const tiredness = Number(d.tiredness_level) || 0;
-      const stress = Number(d.stress_level) || 0;
-      const mood = moodValues[d.mood] || 5; // fallback neutro
-      const sleep = Math.min(Number(d.sleep_hours) || 0, 8);
-
-      const normalizedWellness =
-        (10 - fatigue + (10 - tiredness) + (10 - stress) + mood + sleep) / 5;
-      const wellnessScore = normalizedWellness; // escala 0–100
-
-      // Calcular mood
-      const moodScore = moodValues[d.mood] || 0;
-
-      dailyAveragesMap[d.date].sumLoad += loadScore;
-      dailyAveragesMap[d.date].sumWellness += wellnessScore;
-      dailyAveragesMap[d.date].sumMood += moodScore;
-      dailyAveragesMap[d.date].count += 1;
+    // 6️⃣ Promedios diarios para gráficos: carga y wellness se calculan por separado,
+    // cada uno con los formularios de ese día
+    const byDate = new Map<string, { load: number[]; wellness: number[]; mood: number[] }>();
+    const day = (date: string) => {
+      if (!byDate.has(date)) byDate.set(date, { load: [], wellness: [], mood: [] });
+      return byDate.get(date)!;
+    };
+    for (const f of loadForms) day(f.date).load.push(computeLoadScore(f.rpe));
+    for (const f of wellnessForms) {
+      day(f.date).wellness.push(computeWellnessScore(f));
+      day(f.date).mood.push(moodScore(f.mood));
     }
 
-    const dailyAverages = Object.entries(dailyAveragesMap)
-      .map(([date, vals]) => ({
+    const dailyAverages = [...byDate.entries()]
+      .map(([date, v]) => ({
         date,
-        avgLoad: Math.round(vals.sumLoad / vals.count),
-        avgWellness: Math.round((vals.sumWellness / vals.count) * 10), // antes estaba a 0–10, ahora 0–100
-        avgMood: Math.round((vals.sumMood / vals.count) * 10) / 10,
+        avgLoad: v.load.length ? Math.round(average(v.load)) : null,
+        avgWellness: v.wellness.length ? Math.round(average(v.wellness)) : null,
+        avgMood: v.mood.length ? Math.round(average(v.mood) * 10) / 10 : null,
       }))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     const formsCount =
       loadForms.filter((f) => f.date === dateString).length +
       wellnessForms.filter((f) => f.date === dateString).length;
+
+    // Solicitudes de restablecer contraseña de todo el equipo (porteras incluidas)
+    const resetRequests = await db
+      .select({
+        id: players.id,
+        firstname: players.firstname,
+        lastname: players.lastname,
+        requestedAt: players.reset_requested_at,
+      })
+      .from(players)
+      .where(and(eq(players.team, coach.chosen_team), isNotNull(players.reset_requested_at)))
+      .orderBy(asc(players.reset_requested_at));
 
     // 7️⃣ Respuesta
     return NextResponse.json({
@@ -220,6 +164,11 @@ export async function GET(req: Request) {
       formsCount,
       players: playersData,
       dailyAverages,
+      resetRequests: resetRequests.map((r) => ({
+        id: r.id,
+        name: `${r.firstname} ${r.lastname}`,
+        requestedAt: r.requestedAt,
+      })),
     });
   } catch (err) {
     console.error('Error dashboard API:', err);

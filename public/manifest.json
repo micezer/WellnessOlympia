@@ -1,9 +1,9 @@
 {
-  "name": "Wellness App",
+  "name": "Wellness Olympia",
   "short_name": "Wellness",
-  "description": "Your wellness companion app",
-  "theme_color": "#ffffff",
-  "background_color": "#1e2328",
+  "description": "Seguimiento de wellness y carga de entrenamiento",
+  "theme_color": "#212529",
+  "background_color": "#212529",
   "display": "standalone",
   "start_url": "/",
   "icons": [
@@ -20,7 +20,11 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["health", "fitness", "lifestyle"],
-  "lang": "en",
+  "categories": [
+    "health",
+    "fitness",
+    "lifestyle"
+  ],
+  "lang": "es",
   "orientation": "portrait-primary"
 }

@@ -1,11 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-const teams = ['Senior A', 'Senior B', 'Senior C'];
+import { TEAMS as teams } from '@/lib/forms';
 
 export default function ChooseTeamPage() {
-  const [team] = useState('');
   const [currentTeam, setCurrentTeam] = useState<string | null>(null);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -44,7 +42,7 @@ export default function ChooseTeamPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-full flex items-center justify-center bg-gray-50 p-4">
       <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md text-center">
         <h1 className="text-3xl font-bold mb-6 text-gray-800">Elige tu equipo</h1>
 
@@ -55,7 +53,7 @@ export default function ChooseTeamPage() {
               onClick={() => handleChoose(t)}
               className={`py-3 rounded-lg font-semibold transition-transform transform hover:scale-105 
                 ${
-                  team === t
+                  currentTeam === t
                     ? 'bg-green-500 text-white shadow-lg'
                     : 'bg-gray-200 text-gray-800 hover:bg-green-100'
                 }`}
@@ -68,7 +66,7 @@ export default function ChooseTeamPage() {
         {currentTeam && (
           <button
             onClick={handleGoBack}
-            className="mt-2 w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition-colors"
+            className="mt-2 w-full border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-2.5 rounded-lg transition-colors"
           >
             Volver al dashboard
           </button>

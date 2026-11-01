@@ -2,30 +2,19 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db/db';
 import { coaches } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
-
-const SECRET_KEY = process.env.JWT_SECRET || 'clave-secreta-super-segura';
+import { TEAMS } from '@/lib/forms';
+import { getCoachSession } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = cookies();
-    const token = (await cookieStore).get('user_token')?.value;
-    if (!token) return NextResponse.json({ error: 'No logueado' }, { status: 401 });
-
-    const payload = jwt.verify(token, SECRET_KEY) as { identifier: string; role: string };
-    if (payload.role !== 'coach')
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    const { coach, response } = await getCoachSession();
+    if (response) return response;
 
     const { team } = await req.json();
-    if (!team) return NextResponse.json({ error: 'Falta el equipo' }, { status: 400 });
+    if (!(TEAMS as readonly string[]).includes(team))
+      return NextResponse.json({ error: 'Equipo inválido' }, { status: 400 });
 
-    console.log('✅ Equipo recibido en el servidor:', team);
-
-    await db
-      .update(coaches)
-      .set({ chosen_team: team })
-      .where(eq(coaches.identifier, payload.identifier));
+    await db.update(coaches).set({ chosen_team: team }).where(eq(coaches.id, coach.id));
 
     return NextResponse.json({ redirectUrl: `/coach/dashboard/${team}` });
   } catch (err) {
