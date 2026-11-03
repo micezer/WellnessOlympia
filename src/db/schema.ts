@@ -36,7 +36,8 @@ export const coaches = pgTable('coaches', {
   news_seen: integer('news_seen').notNull().default(0), // última versión de "Novedades" vista
 });
 
-// Administrador: solo gestiona las cuentas de los coaches, no ve datos de equipos
+// Administrador: gestiona las cuentas de los coaches y ve el uso de la app (registro, avisos y
+// formularios enviados sí/no), nunca el contenido de los formularios
 export const admins = pgTable('admins', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),

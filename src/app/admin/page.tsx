@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { KeyRound, LogOut } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/change-password-dialog';
 import { InquiryList } from '@/components/inquiries';
+import { AdminUsage } from '@/components/admin-usage';
 import { cn } from '@/lib/utils';
 import { detachPushSubscription } from '@/hooks/usePushSubscription';
 import { PushToggle } from '@/components/push-toggle';
@@ -24,7 +25,7 @@ export default function AdminPage() {
   const [adminName, setAdminName] = useState('');
   const [adminIdentifier, setAdminIdentifier] = useState('');
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const [tab, setTab] = useState<'coaches' | 'consultas'>('coaches');
+  const [tab, setTab] = useState<'coaches' | 'consultas' | 'uso'>('coaches');
   const [unreadInquiries, setUnreadInquiries] = useState(0);
   const [coaches, setCoaches] = useState<CoachAccount[] | null>(null);
   const [error, setError] = useState('');
@@ -44,7 +45,8 @@ export default function AdminPage() {
 
   // Pestaña inicial desde la URL (al volver de una consulta: /admin?tab=consultas)
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('tab') === 'consultas') setTab('consultas');
+    const initial = new URLSearchParams(window.location.search).get('tab');
+    if (initial === 'consultas' || initial === 'uso') setTab(initial);
     fetch('/api/inquiries', { credentials: 'include' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data && setUnreadInquiries(data.unread))
@@ -111,7 +113,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-dvh bg-gray-50 px-4 py-6 md:p-8 pt-[calc(env(safe-area-inset-top)+1.5rem)]">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className={cn('mx-auto space-y-6', tab === 'uso' ? 'max-w-5xl' : 'max-w-3xl')}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <Image src="/logos/app_logo.png" alt="Wellness" width={44} height={44} />
@@ -150,6 +152,7 @@ export default function AdminPage() {
             [
               ['coaches', 'Coaches'],
               ['consultas', 'Consultas'],
+              ['uso', 'Uso'],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -171,6 +174,8 @@ export default function AdminPage() {
         </div>
 
         {tab === 'consultas' && <InquiryList variant="light" basePath="/admin/inquiries" />}
+
+        {tab === 'uso' && <AdminUsage />}
 
         {tab === 'coaches' && error && <p className="text-red-600">{error}</p>}
         {tab === 'coaches' && !coaches && !error && <p className="text-gray-500">Cargando...</p>}
